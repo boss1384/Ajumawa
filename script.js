@@ -1,44 +1,39 @@
+
 // ================== API KEY ==================
 const API_KEY = "da01d7158a60be461c607c6d31470b4e";
 // ============================================
 
 let allMatches = [];
-let currentMatches = [];
 
 async function loadMatches() {
     document.querySelectorAll('.section').forEach(sec => {
-        sec.innerHTML = `<div class="loading">🔄 Loading matches...</div>`;
+        sec.innerHTML = `<div class="loading">🔄 Loading matches... Please wait</div>`;
     });
 
     try {
         const today = new Date().toISOString().split('T')[0];
 
-        const [liveRes, todayRes] = await Promise.all([
-            fetch("https://v3.football.api-sports.io/fixtures?live=all", {
-                headers: { "x-apisports-key": API_KEY }
-            }),
-            fetch(`https://v3.football.api-sports.io/fixtures?date=${today}`, {
-                headers: { "x-apisports-key": API_KEY }
-            })
-        ]);
+        const res = await fetch(`https://v3.football.api-sports.io/fixtures?date=${today}`, {
+            headers: { "x-apisports-key": API_KEY }
+        });
 
-        const liveData = await liveRes.json();
-        const todayData = await todayRes.json();
+        if (!res.ok) throw new Error("API Error");
 
-        const liveMatches = liveData.response || [];
-        const todayMatches = todayData.response || [];
+        const data = await res.json();
+        allMatches = data.response || [];
 
-        allMatches = [...liveMatches, ...todayMatches];
-        allMatches = allMatches.filter((match, index, self) => 
-            index === self.findIndex(m => m.fixture.id === match.fixture.id)
-        );
-
-        currentMatches = allMatches;
-        renderMatches(allMatches);
-
+        if (allMatches.length === 0) {
+            showNoMatches();
+        } else {
+            renderMatches(allMatches);
+        }
     } catch (e) {
         console.error(e);
-        document.getElementById("europe").innerHTML = `<div class="loading">❌ Error loading data. Check internet.</div>`;
+        document.getElementById("europe").innerHTML = `
+            <div class="loading">
+                ❌ Cannot load matches<br>
+                <small>Check your internet or API key</small>
+            </div>`;
     }
 }
 
@@ -46,9 +41,8 @@ function renderMatches(matches) {
     let eu = "", af = "", as = "", au = "";
 
     matches.forEach(m => {
-        const status = m.fixture.status.short;
-        const isLive = ["1H","HT","2H","ET","P"].includes(status);
-        const elapsed = m.fixture.status.elapsed || 0;
+        const isLive = m.fixture.status.short === "1H" || m.fixture.status.short === "HT" || 
+                      m.fixture.status.short === "2H" || m.fixture.status.short === "ET";
 
         const html = `
             <div class="match \( {isLive ? 'live' : ''}" onclick="showMatchStats( \){m.fixture.id})">
@@ -62,7 +56,7 @@ function renderMatches(matches) {
                     <span>${m.teams.away.name}</span>
                 </div>
                 <div class="info">
-                    <span>${isLive ? `⏱ ${elapsed}' • LIVE` : `🕒 ${m.fixture.status.long}`}</span>
+                    <span>${isLive ? `⏱ ${m.fixture.status.elapsed || 0}' LIVE` : m.fixture.status.long}</span>
                 </div>
             </div>
         `;
@@ -87,104 +81,33 @@ function renderMatches(matches) {
     document.getElementById("aus").innerHTML = au || `<div class="loading">No other matches today</div>`;
 }
 
-function searchMatches() {
-    const term = document.getElementById("searchInput").value.toLowerCase().trim();
-    
-    if (!term) {
-        renderMatches(allMatches);
-        return;
-    }
+function showNoMatches() {
+    const msg = `<div class="loading">No matches found today.<br>Please try again later.</div>`;
+    document.querySelectorAll('.section').forEach(sec => sec.innerHTML = msg);
+}
 
+// Simple Search
+function searchMatches() {
+    const term = document.getElementById("searchInput").value.toLowerCase();
     const filtered = allMatches.filter(m => 
-        m.teams.home.name.toLowerCase().includes(term) ||
-        m.teams.away.name.toLowerCase().includes(term) ||
-        m.league.name.toLowerCase().includes(term)
+        m.teams.home.name.toLowerCase().includes(term) || 
+        m.teams.away.name.toLowerCase().includes(term)
     );
-    
     renderMatches(filtered);
 }
 
-// ================== DETAILED STATS MODAL ==================
-async function showMatchStats(fixtureId) {
-    try {
-        const res = await fetch(`https://v3.football.api-sports.io/fixtures?id=${fixtureId}`, {
-            headers: { "x-apisports-key": API_KEY }
-        });
-        const data = await res.json();
-        const match = data.response[0];
-
-        if (!match) return;
-
-        document.getElementById("modalMatchName").textContent = 
-            `${match.teams.home.name} vs ${match.teams.away.name}`;
-
-        document.getElementById("modalLeague").innerHTML = 
-            `<strong>${match.league.name} • ${match.league.country}</strong>`;
-
-        const stats = match.statistics || [];
-        let statsHTML = "";
-
-        const statMap = {
-            "Ball Possession": "possession",
-            "Total Shots": "total shots",
-            "Shots on Goal": "shots on target",
-            "Shots off Goal": "shots off target",
-            "Blocked Shots": "blocked shots",
-            "Corner Kicks": "corner kicks",
-            "Offsides": "offsides",
-            "Fouls": "fouls",
-            "Yellow Cards": "yellow cards",
-            "Red Cards": "red cards",
-            "Goalkeeper Saves": "goalkeeper saves",
-            "Total passes": "total passes"
-        };
-
-        Object.keys(statMap).forEach(key => {
-            const homeStat = stats.find(s => s.type.toLowerCase() === statMap[key])?.home || 0;
-            const awayStat = stats.find(s => s.type.toLowerCase() === statMap[key])?.away || 0;
-
-            statsHTML += `
-                <div class="stat-item">
-                    <strong>${key}</strong>
-                    <span>${homeStat} - ${awayStat}</span>
-                </div>`;
-        });
-
-        document.getElementById("modalStats").innerHTML = statsHTML;
-        document.getElementById("statsModal").style.display = "block";
-
-        // Change video when opening stats
-        changeVideo(`${match.teams.home.name} vs ${match.teams.away.name}`, match.league.name);
-
-    } catch (e) {
-        console.error(e);
-        alert("Could not load detailed stats");
-    }
+// Keep other functions (modal, video change) minimal for now
+function showMatchStats() {
+    alert("Match details coming soon...");
 }
 
-function closeModal() {
-    document.getElementById("statsModal").style.display = "none";
-}
-
-function changeVideo(matchName, league) {
-    const query = encodeURIComponent(`${matchName} ${league} highlights OR live`);
-    document.getElementById("mainVideo").src = `https://www.youtube.com/embed/results?search_query=${query}`;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function resetVideo() {
-    document.getElementById("mainVideo").src = "https://www.youtube.com/embed/ScMzIvxBSi4?autoplay=1&mute=1";
-}
-
+function changeVideo() {}
+function resetVideo() {}
 function showSection(id) {
     document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
     document.getElementById(id).classList.add('active');
-
-    document.querySelectorAll('.nav button').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('onclick').includes(`'${id}'`));
-    });
 }
 
-// Start App
+// Start
 loadMatches();
-setInterval(loadMatches, 120000);   // Refresh every 2 minutes
+setInterval(loadMatches, 120000);
