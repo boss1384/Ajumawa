@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sahara LiveScore</title>
+    
+    <meta name="description" content="Live Football Scores">
+    <meta name="theme-color" content="#111111">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="https://via.placeholder.com/192x192/ffd700/000000?text=⚽">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="header">
+    <h1>⚽ Sahara LiveScore</h1>
+</div>
+
+<!-- TV -->
+<div class="tv" id="videoContainer">
+    <button onclick="resetVideo()" class="reset-btn">🔄 Main Video</button>
+    <iframe id="mainVideo" src="https://www.youtube.com/embed/ScMzIvxBSi4?autoplay=1&mute=1" allowfullscreen allow="autoplay"></iframe>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+    <input type="text" id="searchInput" placeholder="Search match or league..." onkeyup="searchMatches()">
+    <button onclick="loadMatches()" class="refresh-btn">🔄 Refresh</button>
+</div>
+
+<!-- NAV -->
+<div class="nav">
+    <button onclick="showSection('europe')" class="active">Europe</button>
+    <button onclick="showSection('africa')">Africa</button>
+    <button onclick="showSection('asia')">Asia</button>
+    <button onclick="showSection('aus')">Others</button>
+</div>
+
+<!-- Sections -->
+<div id="europe" class="section active"></div>
+<div id="africa" class="section"></div>
+<div id="asia" class="section"></div>
+<div id="aus" class="section"></div>
+
+<!-- Stats Modal -->
+<div id="statsModal" class="modal">
+    <div class="modal-content">
+        <span onclick="closeModal()" class="close">×</span>
+        <h2 id="modalMatchName"></h2>
+        <div id="modalLeague"></div>
+        <div id="modalStats" class="stats-grid"></div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
